@@ -1,11 +1,13 @@
-import javax.swing.JFrame;
+import javax.swing.*;
+import java.awt.*;
 
 class main{
 	
 	public static void main (String[] argh){
-		JFrame frame = new JFrame("HopNRun");
-		frame.setSize(800,600); // to set the size
-		frame.setVisible(true); // to make it look visible
+		JFrame screen = new JFrame("HopNRun");
+		screen.setSize(800,600); // to set the size
+		screen.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		screen.setVisible(true); // to make it look visible
 	}
 	
 }
