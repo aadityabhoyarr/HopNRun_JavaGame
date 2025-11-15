@@ -1,0 +1,11 @@
+import javax.swing.JFrame;
+
+class main{
+	
+	public static void main (String[] argh){
+		JFrame frame = new JFrame();
+		frame.setSize(800,600);
+		frame.setVisible(true);
+	}
+	
+}
