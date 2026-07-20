@@ -53,16 +53,20 @@ class Player extends GameObject {
     boolean jumping = false;
     double jumpSpeed = 0;
     double gravity = 0.25;
+    // Track the number of jumps executed (0 for ground, 1 for first jump, 2 for double jump)
+    int jumpCount = 0;
 
     public Player(String img, int x, int y) {
         super(img, x, y, 40, 40);
     }
 
     void jump() {
-        if (!jumping) {
+        // Allow jumps up to a maximum count of 2 (ground jump and one mid-air jump)
+        if (jumpCount < 2) {
             jumping = true;
             jumpSpeed = -9;
             gravity = 0.15;
+            jumpCount++; // Increment jump counter on each successful jump press
         }
     }
 
@@ -76,6 +80,7 @@ class Player extends GameObject {
                 jumping = false;
                 jumpSpeed = 0;
                 gravity = 0.25;
+                jumpCount = 0; // Reset jump counter when player lands on the ground
             }
 
             image.setLayoutY(y);
@@ -86,6 +91,7 @@ class Player extends GameObject {
         jumping = false;
         jumpSpeed = 0;
         gravity = 0.25;
+        jumpCount = 0; // Reset jump counter on game restart or reset
     }
 }
 
@@ -192,6 +198,12 @@ public class Main extends Application {
         createObstacle();
         createScore();
 
+        // Dynamically adjust ground tiles and UI when the scene width changes (e.g. window resized/maximized)
+        scene.widthProperty().addListener((obs, oldVal, newVal) -> {
+            adjustGroundTiles();
+            updateScoreLayout();
+        });
+
         // jump
         scene.setOnKeyPressed(e -> {
             if (e.getCode().toString().equals("SPACE") && !gameOver) {
@@ -233,15 +245,39 @@ public class Main extends Application {
 
     // ------------------------ CREATE ELEMENTS ------------------------
 
-    void createGround() {
-        groundY = HEIGHT - TILE;
-        int tilesNeeded = WIDTH / TILE + 2;
+    // Adjusts the number of floor tiles dynamically to cover the visible game window width.
+    // Appends new tiles seamlessly to the end of the scrolling chain to prevent gaps.
+    void adjustGroundTiles() {
+        if (scene == null) return;
+        double sceneWidth = scene.getWidth();
+        // Fall back to default WIDTH if the scene is not fully initialized
+        if (sceneWidth <= 0) {
+            sceneWidth = WIDTH;
+        }
 
-        for (int i = 0; i < tilesNeeded; i++) {
-            GroundTile t = new GroundTile("file:Assets/tile.png", i * TILE, groundY, TILE);
+        // Calculate the number of tiles needed to cover the scene width plus a buffer of 2 tiles
+        int tilesNeeded = (int) Math.ceil(sceneWidth / TILE) + 2;
+
+        // Dynamically add tiles if the window is wider than the currently rendered tiles
+        while (ground.size() < tilesNeeded) {
+            int maxX = -TILE;
+            for (GroundTile t : ground) {
+                if (t.x > maxX) {
+                    maxX = t.x;
+                }
+            }
+            // Position the new tile right after the current rightmost tile to maintain spacing
+            int newX = (ground.isEmpty()) ? 0 : maxX + TILE;
+            GroundTile t = new GroundTile("file:Assets/tile.png", newX, groundY, TILE);
             ground.add(t);
             screen.getChildren().add(t.image);
+            t.image.toBack(); // Render the new tile behind player and obstacles
         }
+    }
+
+    void createGround() {
+        groundY = HEIGHT - TILE;
+        adjustGroundTiles();
     }
 
     void updateGround() {
@@ -259,42 +295,52 @@ public class Main extends Application {
         screen.getChildren().add(obstacle.box);
     }
 
+    int getGameWidth() {
+        return (scene != null && scene.getWidth() > 0) ? (int) scene.getWidth() : WIDTH;
+    }
+
+    void updateScoreLayout() {
+        if (coinIcon != null && scoreText != null) {
+            int currentWidth = getGameWidth();
+            coinIcon.setLayoutX(currentWidth - 130);
+            scoreText.setLayoutX(currentWidth - 90);
+        }
+    }
+
     void updateObstacle() {
         obstacle.move(-2);
 
         if (obstacle.x < -TILE)
-            obstacle.reset("file:Assets/tile.png", WIDTH);
+            obstacle.reset("file:Assets/tile.png", getGameWidth());
     }
 
     void createScore() {
         coinIcon = new ImageView(new Image("file:Assets/coin.png"));
         coinIcon.setFitWidth(30);
         coinIcon.setFitHeight(30);
-        coinIcon.setLayoutX(WIDTH - 130);
         coinIcon.setLayoutY(20);
 
         scoreText = new Text("0");
         scoreText.setFont(smallFont);
         scoreText.setFill(Color.BLACK);
-        scoreText.setLayoutX(WIDTH - 90);
         scoreText.setLayoutY(42);
 
+        updateScoreLayout();
         screen.getChildren().addAll(coinIcon, scoreText);
     }
 
 
-    // ------------------------ GAME OVER ------------------------
-
     void showGameOver() {
+        int currentWidth = getGameWidth();
         gameOverText = new Text("GAME OVER");
         gameOverText.setFont(bigFont);
         gameOverText.setFill(Color.RED);
-        gameOverText.setLayoutX(WIDTH / 2 - 140);
+        gameOverText.setLayoutX(currentWidth / 2 - 140);
         gameOverText.setLayoutY(HEIGHT / 2 - 20);
 
         restartBtn = new Button("RESTART");
         restartBtn.setFont(buttonFont);
-        restartBtn.setLayoutX(WIDTH / 2 - 60);
+        restartBtn.setLayoutX(currentWidth / 2 - 60);
         restartBtn.setLayoutY(HEIGHT / 2 + 20);
         restartBtn.setPrefWidth(120);
         restartBtn.setOnAction(e -> restartGame());
@@ -309,7 +355,7 @@ public class Main extends Application {
         player.setX(100);
         player.setY(groundY - 40);
 
-        obstacle.reset("file:Assets/tile.png", WIDTH);
+        obstacle.reset("file:Assets/tile.png", getGameWidth());
         obstacle.box.setLayoutY(groundY - 40);
 
         score = 0;
